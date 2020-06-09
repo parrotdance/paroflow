@@ -43,7 +43,7 @@ export default class D3Chart extends Vue {
     const nodeMap = Array.from(config.nodes).reduce<NodeInfo>(
       (map, node) =>
         Object.assign(map, { [node.name]: { ...node, linkNodes: [] } }),
-      {} as any
+      {} as NodeInfo
     )
     config.edges.forEach(edge => {
       let { source, target } = edge
@@ -93,10 +93,16 @@ export default class D3Chart extends Vue {
       .attr('stroke', LINE_COLOR)
       .attr('fill', 'transparent')
       .attr('d', source => {
-        if (source.nextNodes) {
+        if (source.linkNodes) {
           const p = path()
-
-          source.nextNodes.forEach((target: any) => {
+          /**
+           * TODO:
+           * 1. group linkNodes by start direction
+           * 2. computed nearest node and divide by 2 for turning point coordinates
+           * 3. line the path for this direction
+           * 4. loop 1-3
+           */
+          source.linkNodes.forEach((target: any) => {
             const [x1, y1] = [
               source.center[0] + source.width / 2,
               source.center[1]

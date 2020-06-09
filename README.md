@@ -1,4 +1,4 @@
-# d3-chart
+# flot-chart-builder
 
 ## Project setup
 ```
