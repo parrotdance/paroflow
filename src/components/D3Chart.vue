@@ -1,5 +1,5 @@
 <template>
-  <svg id="d3chart"></svg>
+  <svg id="d3chart" />
 </template>
 
 <script lang="ts">
@@ -7,7 +7,7 @@ import { Component, Vue } from 'vue-property-decorator'
 import { select } from 'd3-selection'
 import { path } from 'd3-path'
 import config from './chartConfig'
-import { EdgeOption } from './chartConfig'
+import { Node, EdgeOption, EdgeDirection } from './chartConfig'
 
 interface Dictionary<T = any> {
   [index: string]: T
@@ -20,12 +20,46 @@ interface RectOption extends Dictionary {
   height: number
   radius?: number
 }
-
-interface NodeInfo extends Omit<RectOption, 'svgId'> {
-  linkNodes: EdgeOption[]
+interface LinkNode extends Dictionary {
+  source: Node
+  target: Node
+  outDir: EdgeDirection
+  inDir: EdgeDirection
 }
+interface NodeMap extends Node {
+  linkNodes: LinkNode
+}
+type Coordinate = [number, number]
 
 const LINE_COLOR = '#47b785'
+
+const getLinkPoint: (n: Node, dir: string) => Coordinate = (
+  n: Node,
+  dir: string
+) => {
+  const [x, y] = n.center
+  const { width, height } = n
+  const dx = width / 2
+  const dy = height / 2
+  switch (dir) {
+    case 'top':
+      return [x, y - dy]
+    case 'right':
+      return [x + dx, y]
+    case 'bottom':
+      return [x, y + dy]
+    case 'left':
+      return [x - dx, y]
+    default:
+      console.warn('invalid node: ', n)
+      return [x, y]
+  }
+}
+const getDistance = (p1: number[], p2: number[]) => {
+  const a = Math.abs(p2[0] - p1[0])
+  const b = Math.abs(p2[1] - p1[1])
+  return Math.sqrt(a * a + b * b)
+}
 
 @Component
 export default class D3Chart extends Vue {
@@ -40,21 +74,13 @@ export default class D3Chart extends Vue {
   private renderChart(): void {
     this.setViewport()
     // merge nodes and edges
-    const nodeMap = Array.from(config.nodes).reduce<NodeInfo>(
+    const nodeMap: LinkNode = Array.from(config.nodes).reduce(
       (map, node) =>
         Object.assign(map, { [node.name]: { ...node, linkNodes: [] } }),
-      {} as NodeInfo
+      {} as LinkNode
     )
     config.edges.forEach(edge => {
-      let { source, target } = edge
-      source =
-        typeof source === 'string'
-          ? { name: source, direction: 'right' }
-          : source
-      target =
-        typeof target === 'string'
-          ? { name: target, direction: 'left' }
-          : target
+      const { source, target } = edge
       const sourceNode = nodeMap[source.name]
       const targetNode = nodeMap[target.name]
       if (sourceNode === undefined) {
@@ -63,12 +89,15 @@ export default class D3Chart extends Vue {
       if (targetNode === undefined) {
         throw new Error(`Can not find Edge source node: ${targetNode.name}.`)
       }
-      sourceNode.linkNodes.push(targetNode)
-      // TODO: render edge by linkNodes info
+      sourceNode.linkNodes.push({
+        target: targetNode,
+        outDir: source.direction,
+        inDir: target.direction,
+        source: sourceNode
+      })
     })
-    // render rects
     const g = select('#d3chart')
-      .selectAll('rect')
+      .selectAll('g')
       .data(Object.values(nodeMap))
       .enter()
       .append('g')
@@ -84,56 +113,74 @@ export default class D3Chart extends Vue {
       .attr('rx', '4')
       .attr('ry', '4')
     g.append('text')
-      .attr('x', d => d.center[0] - d.width / 4)
-      .attr('y', d => d.center[1] - d.height / 4)
+      .attr('x', d => d.center[0])
+      .attr('y', d => d.center[1])
+      .attr('text-anchor', 'middle')
+      .style('font-size', '14px')
       .text(d => d.text || '')
 
     // render arrows
     g.append('path')
       .attr('stroke', LINE_COLOR)
       .attr('fill', 'transparent')
-      .attr('d', source => {
-        if (source.linkNodes) {
-          const p = path()
+      .attr('d', (source: any) => {
+        const p = path()
+
+        type GroupedLinkNodes = { [index: string]: LinkNode[] }
+        const groupedLinkNodes: GroupedLinkNodes = source.linkNodes.reduce(
+          (res: GroupedLinkNodes, linkNode: LinkNode) => {
+            if (res[linkNode.outDir]) {
+              res[linkNode.outDir].push(linkNode)
+            } else {
+              res[linkNode.outDir] = [linkNode]
+            }
+            return res
+          },
+          {} as GroupedLinkNodes
+        )
+        Object.values(groupedLinkNodes).forEach((linkNodes: LinkNode[]) => {
           /**
-           * TODO:
            * 1. group linkNodes by start direction
            * 2. computed nearest node and divide by 2 for turning point coordinates
            * 3. line the path for this direction
            * 4. loop 1-3
            */
-          source.linkNodes.forEach((target: any) => {
-            const [x1, y1] = [
-              source.center[0] + source.width / 2,
-              source.center[1]
-            ]
-            const [x2, y2] = [
-              target.center[0] - source.width / 2,
-              target.center[1]
-            ]
-            const r = Math.abs(x1 - x2) * 0.5
-            const PI = Math.PI
-
+          const minDistance = linkNodes
+            .map<[Coordinate, Coordinate]>(linkNode => [
+              getLinkPoint(linkNode.source, linkNode.outDir),
+              getLinkPoint(linkNode.target, linkNode.inDir)
+            ])
+            .reduce<number>(
+              (min, p: [Coordinate, Coordinate]) =>
+                Math.min(Math.abs(p[0][0] - p[1][0]), min),
+              Number.MAX_SAFE_INTEGER
+            )
+          const td = minDistance / 2 // turning distance
+          linkNodes.forEach(linkNode => {
+            const { source, target } = linkNode
+            const [x1, y1] = getLinkPoint(source, linkNode.outDir)
+            const [x2, y2] = getLinkPoint(target, linkNode.inDir)
             p.moveTo(x1, y1)
-            if (y1 === y2) {
-              // 平行点
-              p.lineTo(x2, y2)
-            } else if (y1 < y2) {
-              // 低位目标点
-              p.arc(x1, y1 + r, r, 1.5 * PI, 2 * PI)
-              p.lineTo(x2 - r, y2 - r)
-              p.arc(x2, y2 - r, r, -PI, 0.5 * PI, true)
-            } else if (y1 > y2) {
-              // 高位目标点
-              p.arc(x1, y1 - r, r, 0.5 * PI, 0, true)
-              p.lineTo(x2 - r, y2 + r)
-              p.arc(x2, y2 + r, r, 1 * PI, 1.5 * PI)
+            switch (linkNode.outDir) {
+              case 'top':
+                p.lineTo(x1, y1 - td)
+                p.lineTo(x2, y1 - td)
+                p.lineTo(x2, y2)
+                break
+              case 'bottom':
+                p.lineTo(x1, y1 + td)
+                p.lineTo(x2, y1 + td)
+                p.lineTo(x2, y2)
+                break
+              default:
+                // right
+                p.lineTo(x1 + td, y1)
+                p.lineTo(x1 + td, y2)
+                p.lineTo(x2, y2)
             }
           })
-          return p.toString()
-        } else {
-          return ''
-        }
+        })
+        return p.toString()
       })
   }
 }
