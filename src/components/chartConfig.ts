@@ -99,13 +99,13 @@ const flowChart = new FlowChart()
 flowChart
   .addNode('a', 50, 130, '测试')
   .addNode('b', 150, 130, '测试2ab')
-  .addEdge('a', 'b')
-  .addNode('c', 350, 80, '测试测试测试测试试')
-  .addNode('d', 350, 170, '测试测试测试测试测试测试')
+  .addEdge('a', 'b', 'right-top')
+  .addNode('c', 350, 50, '测试测试测试测试试')
+  .addNode('d', 350, 270, '测试测试测试测试测试测试')
   .addEdge('b', 'c')
   .addEdge('b', 'd')
   .addNode('e', 550, 130, '测试测试试')
-  .addEdge('c', 'e')
-  .addEdge('d', 'e')
+  .addEdge('c', 'e', 'right-top')
+  .addEdge('d', 'e', 'right-bottom')
 
 export default flowChart
