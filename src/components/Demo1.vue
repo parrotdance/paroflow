@@ -1,7 +1,7 @@
 <template>
   <div>
     <h1>DEMO1</h1>
-    <svg id="d3chart" />
+    <svg id="demo1" />
   </div>
 </template>
 
@@ -16,7 +16,7 @@ export default class Demo1 extends Vue {
   }
 
   private renderChart(): void {
-    const flowChart = new FlowChart('#d3chart')
+    const flowChart = new FlowChart('#demo1', { width: 720, height: 350 })
     flowChart
       .addNode('a', 70, 150, '节点A')
       .addNode('b', 200, 150, '粉色背景的节点B', { backgroundColor: '#eca290' })

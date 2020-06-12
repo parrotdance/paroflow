@@ -1,5 +1,5 @@
-import { select } from 'd3-selection'
 import { path } from 'd3-path'
+import { select } from 'd3-selection'
 
 interface FlowChartInitialOptions {
   width?: number
@@ -58,8 +58,8 @@ const LINE_RENDER_PATTERN_MAP: any = {
   '1000100000000100': 'xy', // top-top-lb
   '1000100000000001': 'yx', // top-top-lt
   '1000010001000000': 'xy', // top-right-rt
-  '1000010000010000': 'xyx', // top-right-rb
-  '1000010000000100': 'xyx', // top-right-lb
+  '1000010000010000': 'xy', // top-right-rb
+  '1000010000000100': 'xy', // top-right-lb
   '1000010000000001': 'yx', // top-right-lt
   '1000001001000000': 'xy', // top-bottom-rt
   '1000001000010000': 'xyx', // top-bottom-rb
@@ -106,7 +106,7 @@ const LINE_RENDER_PATTERN_MAP: any = {
 
   '0001100001000000': 'xy', // left-top-rt
   '0001100000010000': 'xy', // left-top-rb
-  '0001100000000100': 'yx', // left-top-lb
+  '0001100000000100': 'xy', // left-top-lb
   '0001100000000001': 'xy', // left-top-lt
   '0001010001000000': 'yxy', // left-right-rt
   '0001010000010000': 'yxy', // left-right-rb

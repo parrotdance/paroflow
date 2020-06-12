@@ -1,16 +1,19 @@
 <template>
   <div id="app">
     <Demo1 />
+    <Demo2 />
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
 import Demo1 from './components/Demo1.vue'
+import Demo2 from './components/Demo2.vue'
 
 @Component({
   components: {
-    Demo1
+    Demo1,
+    Demo2
   }
 })
 export default class App extends Vue {}

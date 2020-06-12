@@ -13,6 +13,10 @@ Compiles .js and .d.ts file
 npm run build
 ```
 
-# Demo:
+# Informal Demo:
 
 ![Demo1](./public/demo1.png)
+
+# Better Demo:
+
+![Demo2](./public/demo2.png)
