@@ -9,7 +9,7 @@ npm install
 # Run demo
 npm run serve
 
-Compiles .js and .d.ts file
+# Compiles .js and .d.ts file
 npm run build
 ```
 
