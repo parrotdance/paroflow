@@ -100,7 +100,7 @@ const LINE_RENDER_PATTERN_MAP: any = {
   '0010001000000100': 'yx', // bottom-bottom-lb
   '0010001000000001': 'xy', // bottom-bottom-lt
   '0010000101000000': 'xy', // bottom-left-rt
-  '0010000100010000': 'xy', // bottom-left-rb
+  '0010000100010000': 'yx', // bottom-left-rb
   '0010000100000100': 'xy', // bottom-left-lb
   '0010000100000001': 'xy', // bottom-left-lt
 
