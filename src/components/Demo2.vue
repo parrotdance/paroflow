@@ -7,7 +7,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator'
-import FlowChart from '@/lib/FlowChart'
+import FlowChart from '@/lib/chart'
 
 @Component
 export default class Demo2 extends Vue {
