@@ -246,7 +246,7 @@ const getArrowTypeSign = (
   return sign.toString(2).padStart(16, '0')
 }
 class FlowChart {
-  private _svg?: any
+  private _svg: any
   private nodes: Node[] = []
   private edges: Edge[] = []
   private options: any = {
@@ -257,14 +257,14 @@ class FlowChart {
     lineHeight: 24
   }
 
-  constructor(el: string, options: FlowChartInitialOptions = {}) {
+  constructor(selector: string, options: FlowChartInitialOptions = {}) {
     Object.entries(options).forEach(([k, v]) => {
       if (this.options[k]) {
         this.options[k] = v
       }
     })
     const { width, height } = this.options
-    this._svg = select(el)
+    this._svg = select(selector)
     this._svg.attr('width', width)
     this._svg.attr('height', height)
   }
@@ -459,6 +459,7 @@ class FlowChart {
         style
       })
     })
+    this._svg.html('') // clear svg content for rerender
     Object.values(nodeMap).forEach(d => {
       const g = this._svg.append('g')
       const { style } = d
