@@ -1,6 +1,6 @@
-# P-flow
+# Paroflow
 
-P-flow is a simple flow-chart builder which work with `D3.js`.
+Paroflow is a simple flow-chart builder which work with `D3.js`.
 
 ```
 # Project setup
@@ -28,7 +28,7 @@ npm run build
 ### First, you need set a `svg` Element in your page.
 
 ```html
-<svg id="p-flow"></svg>
+<svg id="paroflow"></svg>
 ```
 
 ### Create an instance of `FlowChart`.
@@ -36,7 +36,7 @@ npm run build
 You must pass a valid selector which can find your `svg` element to locate render position. In this case you can code like this:
 
 ```javascript
-const chart = new FlowChart('#p-flow')
+const chart = new FlowChart('#paroflow')
 ```
 
 You can also privide some global options like:
@@ -47,7 +47,7 @@ const options = {
   height: 300,
   fontSize: 16
 }
-const chart = new FlowChart('#p-flow', options)
+const chart = new FlowChart('#paroflow', options)
 ```
 
 Full options see: `FlowChartInitialOptions` in [Declaration file](dist/chart.d.ts)

@@ -1,5 +1,5 @@
 {
-  "name": "p-flow",
+  "name": "paroflow",
   "version": "0.1.1",
   "author": "ParroT parrotdance95@gmail.com",
   "scripts": {
@@ -32,7 +32,7 @@
     "typescript": "~3.9.3",
     "vue-template-compiler": "^2.6.11"
   },
-  "description": "P-flow is a simple flow-chart builder which works with `D3.js`.",
+  "description": "Paroflow is a simple flow-chart builder which works with `D3.js`.",
   "main": "dist/chart.js",
   "files": [
     "dist/*.js",
@@ -40,7 +40,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/parrotdance/p-flow.git"
+    "url": "https://github.com/parrotdance/paroflow.git"
   },
   "keywords": [
     "flow",
@@ -52,7 +52,7 @@
   ],
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/parrotdance/p-flow/issues"
+    "url": "https://github.com/parrotdance/paroflow/issues"
   },
-  "homepage": "https://github.com/parrotdance/p-flow#readme"
+  "homepage": "https://github.com/parrotdance/paroflow#readme"
 }
