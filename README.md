@@ -1,6 +1,6 @@
 # Paroflow
 
-Paroflow is a simple flow-chart builder which work with `D3.js`.
+Paroflow is a simple flow-chart builder which works with `D3.js` and SVG.
 
 ```
 # Project setup
@@ -15,23 +15,25 @@ npm run build
 
 # Demo
 
-### Informal:
-
-![Demo1](./public/demo1.png)
-
-### Pretty One:
-
-![Demo2](./public/demo2.png)
+![Demo](./public/demo2.png)
 
 # Usage
 
-### First, you need set a `svg` Element in your page.
+## Install
+
+```
+npm install --save paroflow
+```
+
+### Set a `svg` Element in your page.
 
 ```html
 <svg id="paroflow"></svg>
 ```
 
 ### Import `FlowChart` and Create an instance.
+
+> Currently, Only ES Module version is availible for my work. If need other version, please [tell me](https://github.com/parrotdance/paroflow/issues).
 
 You must pass a valid selector which can find your `svg` element to locate render position. In this case you can code like this:
 

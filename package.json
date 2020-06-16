@@ -43,12 +43,12 @@
     "url": "https://github.com/parrotdance/paroflow.git"
   },
   "keywords": [
+    "paro",
+    "paroflow",
     "flow",
     "chart",
     "flowchart",
-    "ParroT",
-    "parrotdance",
-    "parrot"
+    "parrotdance"
   ],
   "license": "ISC",
   "bugs": {
