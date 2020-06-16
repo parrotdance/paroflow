@@ -1,6 +1,6 @@
 {
   "name": "paroflow",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "ParroT parrotdance95@gmail.com",
   "scripts": {
     "serve": "vue-cli-service serve",
