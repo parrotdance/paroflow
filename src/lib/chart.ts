@@ -407,14 +407,26 @@ class FlowChart {
   ) {
     const { direction, color = this.options.lineColor } = options
     const defaultDir = 'right-left'
-    let outDir = ''
-    let inDir = ''
     if (direction && !direction.includes('-')) {
-      console.error(
+      console.warn(
         `invalid direction: ${direction}, use default direction instead.`
       )
     }
-    ;[outDir, inDir] = direction ? direction.split('-') : defaultDir.split('-')
+    const sourceExist = this.nodes.find(node => node.name === source)
+    const targetExist = this.nodes.find(node => node.name === target)
+    if (!sourceExist) {
+      console.error(
+        `[P-Flow warn]: Can't find source node: ${source}.\n\nPlease check if add node correctly before or add it before call render().`
+      )
+    }
+    if (!targetExist) {
+      console.error(
+        `[P-Flow warn]: Can't find target node: ${target}.\n\nPlease check if add node correctly before or add it before call render().`
+      )
+    }
+    const [outDir, inDir] = direction
+      ? direction.split('-')
+      : defaultDir.split('-')
     const from: EdgeOption = {
       name: source,
       direction: outDir as EdgeDirection
