@@ -31,11 +31,13 @@ npm run build
 <svg id="paroflow"></svg>
 ```
 
-### Create an instance of `FlowChart`.
+### Import `FlowChart` and Create an instance.
 
 You must pass a valid selector which can find your `svg` element to locate render position. In this case you can code like this:
 
 ```javascript
+import FlowChart from 'paroflow'
+
 const chart = new FlowChart('#paroflow')
 ```
 
