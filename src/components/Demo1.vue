@@ -16,10 +16,15 @@ export default class Demo1 extends Vue {
   }
 
   private renderChart(): void {
-    const flowChart = new FlowChart('#demo1', { width: 720, height: 350 })
+    const flowChart = new FlowChart('#demo1', {
+      width: 720,
+      height: 350
+    })
     flowChart
       .addNode('a', 70, 150, '节点A')
-      .addNode('b', 200, 150, '粉色背景的节点B', { backgroundColor: '#eca290' })
+      .addNode('b', 200, 150, '粉色背景的节点B', {
+        backgroundColor: '#eca290'
+      })
       .addEdge('a', 'b')
       .addNode('c', 450, 80, '黄色边框的节点C', { borderColor: '#f3ff40' })
       .addNode(
@@ -32,7 +37,7 @@ export default class Demo1 extends Vue {
       .addEdge('b', 'd')
       .addNode('e', 550, 150, '很长很长很长很长很长很长很长的节点E')
       .addEdge('c', 'e', { direction: 'right-top' })
-      .addEdge('d', 'e', { direction: 'right-bottom' })
+      .addEdge('d', 'e', { direction: 'right-bottom', width: 1 })
     flowChart.render()
   }
 }

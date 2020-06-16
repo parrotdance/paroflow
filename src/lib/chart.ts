@@ -1,22 +1,37 @@
 import { path } from 'd3-path'
 import { select } from 'd3-selection'
 
+type EdgeDirection = 'top' | 'right' | 'bottom' | 'left'
+type LinkPattern = 'xy' | 'yx' | 'xyx' | 'yxy'
 interface FlowChartInitialOptions {
   width?: number
   height?: number
-  lineColor?: string
   fontSize?: number
+  fontColor?: string
   lineHeight?: number
+  edgeColor?: string
+  edgeWidth?: number
+  nodeBackgroundColor?: string
+  nodeBorderColor?: string
+  nodeMinWidth?: number
+  nodeMinHeight?: number
+  extendLength?: number
 }
 interface FlowChartNodeOptions {
   padding?: [number, number]
-  textSize?: number
+  fontSize?: number
+  fontColor?: string
   borderColor?: string
   backgroundColor?: string
+  minWidth?: number
+  minHeight?: number
+  extendLength?: number
 }
 interface FlowChartEdgeOptions {
   direction?: string
   color?: string
+  width?: number
+  pattern?: LinkPattern
 }
 interface Node {
   name: string
@@ -24,10 +39,10 @@ interface Node {
   width: number
   height: number
   text: string[]
+  extendLength: number
   style: Dictionary
   links: Link[]
 }
-type EdgeDirection = 'top' | 'right' | 'bottom' | 'left'
 interface EdgeOption {
   name: string
   direction: EdgeDirection
@@ -36,6 +51,7 @@ interface Edge {
   source: EdgeOption
   target: EdgeOption
   style: Dictionary
+  pattern?: LinkPattern
 }
 interface Dictionary<T = any> {
   [index: string]: T
@@ -47,12 +63,13 @@ interface Link extends Dictionary {
   outDir: EdgeDirection
   inDir: EdgeDirection
   style: Dictionary
+  pattern?: LinkPattern
 }
 type Coordinate = [number, number]
 type GroupedLinks = { [index: string]: Link[] }
 
 // Define od-id-direction pattern
-const LINE_RENDER_PATTERN_MAP: any = {
+const LINE_RENDER_PATTERN_MAP: Dictionary<LinkPattern> = {
   '1000100001000000': 'yx', // top-top-rt
   '1000100000010000': 'xy', // top-top-rb
   '1000100000000100': 'xy', // top-top-lb
@@ -143,31 +160,6 @@ const getDirection = (a: Coordinate, b: Coordinate) => {
   const hor = by - ay >= 0 ? 2 : 0
   return DIR_MATRIX[hor][ver]
 }
-const getBoundPoint = (
-  node: Node,
-  dir: EdgeDirection,
-  extend: boolean,
-  length = 12
-) => {
-  const {
-    center: [x, y],
-    width,
-    height
-  } = node
-  let dx = 0,
-    dy = 0
-  const extendLength = extend ? length : 0
-  if (dir === 'top') {
-    dy = -0.5 * height - extendLength
-  } else if (dir === 'right') {
-    dx = 0.5 * width + extendLength
-  } else if (dir === 'bottom') {
-    dy = 0.5 * height + extendLength
-  } else {
-    dx = -0.5 * width - extendLength
-  }
-  return [x + dx, y + dy] as Coordinate
-}
 const getTextLength = (text: string) => {
   let len = 0
   let i = 0
@@ -252,11 +244,17 @@ class FlowChart {
   private options: any = {
     width: 800,
     height: 600,
-    lineColor: '#47b785',
     fontSize: 14,
-    lineHeight: 24
+    fontColor: '#000000',
+    lineHeight: 24,
+    edgeColor: '#47b785',
+    edgeWidth: 1,
+    nodeBorderColor: '#47b785',
+    nodeBackgroundColor: 'transparent',
+    nodeMinWidth: 60,
+    nodeMinHeight: 50,
+    extendLength: 12
   }
-
   constructor(selector: string, options: FlowChartInitialOptions = {}) {
     Object.entries(options).forEach(([k, v]) => {
       if (this.options[k]) {
@@ -268,17 +266,43 @@ class FlowChart {
     this._svg.attr('width', width)
     this._svg.attr('height', height)
   }
-  private drawLinkLine(group: any, link: any) {
+  private getBoundPoint(node: Node, dir: EdgeDirection, extend: boolean) {
+    const {
+      center: [x, y],
+      width,
+      height,
+      extendLength
+    } = node
+    let dx = 0,
+      dy = 0
+    const finalExtendLength = extend
+      ? extendLength || this.options.extendLength
+      : 0
+    if (dir === 'top') {
+      dy = -0.5 * height - finalExtendLength
+    } else if (dir === 'right') {
+      dx = 0.5 * width + finalExtendLength
+    } else if (dir === 'bottom') {
+      dy = 0.5 * height + finalExtendLength
+    } else {
+      dx = -0.5 * width - finalExtendLength
+    }
+    return [x + dx, y + dy] as Coordinate
+  }
+  private drawLinkLine(group: any, link: Link) {
     const p = path()
     const pathEl = group.append('path')
-    const { style } = link
-    pathEl.attr('stroke', style.color).attr('fill', 'transparent')
-    const { source, target, outDir, inDir } = link
+    const { color, width } = link.style
+    pathEl
+      .attr('stroke', color)
+      .attr('fill', 'transparent')
+      .attr('stroke-width', width)
+    const { source, target, outDir, inDir, pattern } = link
     // 1. get point coordinates at extend line
-    const startPoint = getBoundPoint(source, outDir, false)
-    const endPoint = getBoundPoint(target, inDir, false)
-    const startExtendPoint = getBoundPoint(source, outDir, true)
-    const endExtendPoint = getBoundPoint(target, inDir, true)
+    const startPoint = this.getBoundPoint(source, outDir, false)
+    const endPoint = this.getBoundPoint(target, inDir, false)
+    const startExtendPoint = this.getBoundPoint(source, outDir, true)
+    const endExtendPoint = this.getBoundPoint(target, inDir, true)
     // 2. compute target node direction: lt/rt/lb/rb. TODO: t/b/l/r
     const arrowDir = getDirection(startExtendPoint, endExtendPoint)
     // 3. define line path to match od-id-direction pattern and run
@@ -290,7 +314,7 @@ class FlowChart {
     const [tx, ty] = endExtendPoint
     p.moveTo(x1, y1)
     p.lineTo(sx, sy)
-    const drawPattern = LINE_RENDER_PATTERN_MAP[typeSign]
+    const drawPattern = pattern || LINE_RENDER_PATTERN_MAP[typeSign]
     switch (drawPattern) {
       case 'xy':
         p.lineTo(tx, sy)
@@ -309,6 +333,7 @@ class FlowChart {
         p.lineTo(sx + (tx - sx) / 2, sy)
         p.lineTo(sx + (tx - sx) / 2, ty)
         p.lineTo(tx, ty)
+        break
     }
     p.lineTo(x2, y2)
     // draw arrow
@@ -358,12 +383,14 @@ class FlowChart {
   ): this {
     const {
       padding = [10, 20],
-      textSize = this.options.fontSize,
-      borderColor = this.options.lineColor,
-      backgroundColor = 'transparent'
+      fontSize = this.options.fontSize,
+      borderColor = this.options.nodeBorderColor,
+      fontColor = this.options.fontColor,
+      backgroundColor = this.options.nodeBackgroundColor,
+      minWidth = this.options.nodeMinWidth,
+      minHeight = this.options.nodeMinHeight,
+      extendLength = this.options.extendLength
     } = options
-    const MIN_HEIGHT = 50
-    const MIN_WIDTH = 60
     let lines = 0
     let maxTextLength = 0
     let textSpl = null
@@ -377,12 +404,12 @@ class FlowChart {
       maxTextLength = Math.max(...text.map(str => getTextLength(str)))
     }
     const width = Math.max(
-      (textSize / 2) * maxTextLength + padding[1] * 2,
-      MIN_WIDTH
+      (fontSize / 2) * maxTextLength + padding[1] * 2,
+      minWidth
     )
     const height = Math.max(
       lines * this.options.lineHeight + padding[0] * 2,
-      MIN_HEIGHT
+      minHeight
     )
     this.nodes.push({
       name,
@@ -392,10 +419,12 @@ class FlowChart {
       text: textSpl,
       style: {
         padding,
-        textSize,
+        fontSize,
+        fontColor,
         borderColor,
         backgroundColor
       },
+      extendLength,
       links: []
     })
     return this
@@ -405,7 +434,12 @@ class FlowChart {
     target: string,
     options: FlowChartEdgeOptions = {}
   ) {
-    const { direction, color = this.options.lineColor } = options
+    const {
+      direction,
+      color = this.options.edgeColor,
+      width = this.options.edgeWidth,
+      pattern
+    } = options
     const defaultDir = 'right-left'
     if (direction && !direction.includes('-')) {
       console.warn(
@@ -439,8 +473,10 @@ class FlowChart {
       source: from,
       target: to,
       style: {
-        color
-      }
+        color,
+        width
+      },
+      pattern
     })
     return this
   }
@@ -450,7 +486,7 @@ class FlowChart {
       {} as Dictionary<Node>
     )
     this.edges.forEach(edge => {
-      const { source, target, style } = edge
+      const { source, target, style, pattern } = edge
       const sourceNode = nodeMap[source.name]
       const targetNode = nodeMap[target.name]
       if (sourceNode === undefined) {
@@ -464,26 +500,29 @@ class FlowChart {
         )
       }
       sourceNode.links.push({
+        source: sourceNode,
         target: targetNode,
         outDir: source.direction,
         inDir: target.direction,
-        source: sourceNode,
+        pattern,
         style
       })
     })
     this._svg.html('') // clear svg content for rerender
-    Object.values(nodeMap).forEach(d => {
+    Object.values(nodeMap).forEach((d: Node) => {
       const g = this._svg.append('g')
-      const { style } = d
+      const { width, height } = d
+      const [cx, cy] = d.center
+      const { borderColor, backgroundColor, fontColor } = d.style
       // render rect
       g.append('rect')
         .attr('class', 'node-rect')
-        .attr('x', d.center[0] - d.width / 2)
-        .attr('y', d.center[1] - d.height / 2)
-        .attr('width', d.width)
-        .attr('height', d.height)
-        .attr('stroke', style.borderColor)
-        .attr('fill', style.backgroundColor)
+        .attr('x', cx - width / 2)
+        .attr('y', cy - height / 2)
+        .attr('width', width)
+        .attr('height', height)
+        .attr('stroke', borderColor)
+        .attr('fill', backgroundColor)
         .attr('stroke-width', '2')
         .attr('rx', '4')
         .attr('ry', '4')
@@ -491,7 +530,8 @@ class FlowChart {
       const t = g
         .append('text')
         .attr('text-anchor', 'middle')
-        .attr('font-size', 14)
+        .attr('font-size', this.options.fontSize)
+        .attr('fill', fontColor)
       let textPosYOffset = 0
       const textLines = d.text.length
       if (textLines === 1) {
@@ -525,9 +565,9 @@ class FlowChart {
         },
         {} as GroupedLinks
       )
-      Object.values(groupedLinks).forEach((links: Link[]) => {
-        links.forEach(n => this.drawLinkLine(g, n))
-      })
+      Object.values(groupedLinks).forEach((links: Link[]) =>
+        links.forEach(link => this.drawLinkLine(g, link))
+      )
     })
   }
 }

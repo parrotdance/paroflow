@@ -17,7 +17,8 @@ export default class Demo2 extends Vue {
 
   private renderChart(): void {
     const flowChart = new FlowChart('#demo2', {
-      lineColor: '#000000',
+      edgeColor: '#000000',
+      nodeBorderColor: '#000000',
       height: 300
     })
     flowChart
