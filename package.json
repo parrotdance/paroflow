@@ -4,7 +4,7 @@
   "author": "ParroT parrotdance95@gmail.com",
   "scripts": {
     "serve": "vue-cli-service serve",
-    "build": "tsc src/lib/chart -d --target es2015 --outDir dist/"
+    "build": "tsc src/lib/chart -d --target es2015 --outDir dist/ && prettier --write dist/*"
   },
   "dependencies": {
     "core-js": "^3.6.5",
@@ -33,7 +33,7 @@
     "vue-template-compiler": "^2.6.11"
   },
   "description": "P-flow is a simple flow-chart builder which works with `D3.js`.",
-  "main": "dist/p-flow.js",
+  "main": "dist/chart.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/parrotdance/p-flow.git"
