@@ -239,6 +239,7 @@ const getArrowTypeSign = (
 }
 class FlowChart {
   private _svg: any
+  private _pathGroup: any
   private nodes: Node[] = []
   private edges: Edge[] = []
   private options: any = {
@@ -289,11 +290,12 @@ class FlowChart {
     }
     return [x + dx, y + dy] as Coordinate
   }
-  private drawLinkLine(group: any, link: Link) {
+  private drawLinkLine(link: Link) {
     const p = path()
-    const pathEl = group.append('path')
+    const pathEl = this._pathGroup.append('path')
     const { color, width } = link.style
     pathEl
+      .attr('class', 'paro-edge')
       .attr('stroke', color)
       .attr('fill', 'transparent')
       .attr('stroke-width', width)
@@ -509,14 +511,15 @@ class FlowChart {
       })
     })
     this._svg.html('') // clear svg content for rerender
+    this._pathGroup = this._svg.append('g')
     Object.values(nodeMap).forEach((d: Node) => {
-      const g = this._svg.append('g')
+      const g = this._svg.append('g').attr('class', 'paro-node')
       const { width, height } = d
       const [cx, cy] = d.center
       const { borderColor, backgroundColor, fontColor } = d.style
       // render rect
       g.append('rect')
-        .attr('class', 'node-rect')
+        .attr('class', 'paro-node-rect')
         .attr('x', cx - width / 2)
         .attr('y', cy - height / 2)
         .attr('width', width)
@@ -566,7 +569,7 @@ class FlowChart {
         {} as GroupedLinks
       )
       Object.values(groupedLinks).forEach((links: Link[]) =>
-        links.forEach(link => this.drawLinkLine(g, link))
+        links.forEach(link => this.drawLinkLine(link))
       )
     })
   }
