@@ -33,7 +33,7 @@ npm install --save paroflow
 
 ### Import `FlowChart` and Create an instance.
 
-> Currently, Only ES Module version is availible for my work. If need other version, please [tell me](https://github.com/parrotdance/paroflow/issues).
+> Currently, Only ES Module version is availible. If need other version, please [tell me](https://github.com/parrotdance/paroflow/issues).
 
 You must pass a valid selector which can find your `svg` element to locate render position. In this case you can code like this:
 
