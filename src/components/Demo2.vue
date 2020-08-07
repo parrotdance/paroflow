@@ -40,6 +40,7 @@ export default class Demo2 extends Vue {
       .addEdge('e', 'c', { direction: 'right-left' })
       .addEdge('e', 'd', { direction: 'bottom-top' })
     flowChart.render()
+    flowChart.drag()
   }
 }
 </script>
