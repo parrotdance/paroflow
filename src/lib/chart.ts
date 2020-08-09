@@ -1,8 +1,9 @@
-import { event, drag, path, select, selectAll } from 'd3'
+import { event, drag, path, select } from 'd3'
 
 type EdgeDirection = 'top' | 'right' | 'bottom' | 'left'
 type PointDirection = 'negative' | 'positive'
-type LinkPattern = 'xy' | 'yx' | 'xyx' | 'yxy'
+type Coordinate = [number, number]
+
 interface FlowChartInitialOptions {
   width?: number
   height?: number
@@ -32,9 +33,23 @@ interface FlowChartEdgeOptions {
   direction?: string
   color?: string
   width?: number
-  pattern?: LinkPattern
 }
-
+interface Dictionary<T = any> {
+  [index: string]: T
+}
+const getTextLength = (text: string) => {
+  let len = 0
+  let i = 0
+  while (i < text.length) {
+    if (text.charCodeAt(i) > 127 || text.charCodeAt(i) == 94) {
+      len += 2
+    } else {
+      len++
+    }
+    i++
+  }
+  return len
+}
 class Node {
   name: string
   nodeId: number
@@ -77,9 +92,7 @@ class Node {
     } = node
     let dx = 0,
       dy = 0
-    const finalExtendLength = extend
-      ? extendLength || this.extendLength
-      : 0
+    const finalExtendLength = extend ? extendLength || this.extendLength : 0
     if (dir === 'top') {
       dy = -0.5 * height - finalExtendLength
     } else if (dir === 'right') {
@@ -95,10 +108,20 @@ class Node {
   public drawNode(_svg: any, boxId: number) {
     this.nodeId = boxId
     this.svgEl = _svg
-    const g = _svg.append('g').attr('class', 'paro-node' + boxId).attr('nodeId', boxId)
+    const g = _svg
+      .append('g')
+      .attr('class', 'paro-node' + boxId)
+      .attr('nodeId', boxId)
     const { width, height } = this
     const [cx, cy] = this.center
-    const { borderColor, backgroundColor, fontColor, borderRadius, lineHeight, fontSize } = this.style
+    const {
+      borderColor,
+      backgroundColor,
+      fontColor,
+      borderRadius,
+      lineHeight,
+      fontSize
+    } = this.style
     // render rect
     g.append('rect')
       .attr('rectId', boxId)
@@ -131,11 +154,7 @@ class Node {
     }
     const STATIC_OFFSET = 5 // I don't know why
     this.text.forEach((str: string, i: number) => {
-      const y =
-        this.center[1] +
-        textPosYOffset +
-        i * lineHeight +
-        STATIC_OFFSET
+      const y = this.center[1] + textPosYOffset + i * lineHeight + STATIC_OFFSET
       t.append('tspan')
         .attr('class', 'paro-node-tspan' + boxId)
         .attr('x', this.center[0])
@@ -158,7 +177,7 @@ class Node {
 
   public changeXY(resetXY: Coordinate) {
     const [x1, y1] = resetXY
-    this.center = [x1 + (this.width / 2), y1 + (this.height / 2)]
+    this.center = [x1 + this.width / 2, y1 + this.height / 2]
 
     this.coordinateXY.top = this.getBoundPoint(this, 'top', false)
     this.coordinateXY.left = this.getBoundPoint(this, 'left', false)
@@ -170,15 +189,12 @@ class Node {
     this.coordinateXY.exright = this.getBoundPoint(this, 'right', true)
 
     this.links.forEach((link: Link) => {
-      link.changeLink();
+      link.changeLink()
     })
     this.targetLinks.forEach((link: Link) => {
-      link.changeLink();
+      link.changeLink()
     })
   }
-}
-interface Dictionary<T = any> {
-  [index: string]: T
 }
 class DirectionPoint {
   posTrunXY: string
@@ -199,11 +215,11 @@ class Link {
   pathEl: any
   sourceNode: Node
   targetNode: Node
-  sourceXY: [number, number] = [0, 0]
-  sourceOriginXY: [number, number] = [0, 0]
-  targetXY: [number, number] = [0, 0]
-  targetOriginXY: [number, number] = [0, 0]
-  centerPoint: [number, number] = [0, 0]
+  sourceXY: Coordinate = [0, 0]
+  sourceOriginXY: Coordinate = [0, 0]
+  targetXY: Coordinate = [0, 0]
+  targetOriginXY: Coordinate = [0, 0]
+  centerPoint: Coordinate = [0, 0]
   //InflectionPoint must in rect
   InflectionPoint?: Coordinate
   outDir: EdgeDirection = 'right'
@@ -211,8 +227,6 @@ class Link {
   svgEl: any
   lineId?: number
   style: Dictionary = {}
-
-  private static nodeMap: Dictionary<Node>
 
   constructor(linkArg: any) {
     this.sourceNode = linkArg.sourceNode
@@ -226,10 +240,6 @@ class Link {
     this.outDir = linkArg.outDir
     this.inDir = linkArg.inDir
     this.style = linkArg.style
-  }
-
-  static setNodeMap(nodeMap: Dictionary<Node>) {
-    this.nodeMap = nodeMap
   }
 
   // Is the line formed by two points parallel to the coordinate axis
@@ -253,7 +263,11 @@ class Link {
     return [(x1 + x2) / 2, (y1 + y2) / 2]
   }
 
-  private getDirectionPoint(mainPoint: Coordinate, point: Coordinate, edgeDirection: EdgeDirection): DirectionPoint {
+  private getDirectionPoint(
+    mainPoint: Coordinate,
+    point: Coordinate,
+    edgeDirection: EdgeDirection
+  ): DirectionPoint {
     const [x1, y1] = mainPoint
     const [x2, y2] = point
 
@@ -319,7 +333,10 @@ class Link {
     })
   }
 
-  private drawNeatLine(sourceDirPoint: DirectionPoint, targetDirPoint: DirectionPoint) {
+  private drawNeatLine(
+    sourceDirPoint: DirectionPoint,
+    targetDirPoint: DirectionPoint
+  ) {
     const [x1, y1] = this.sourceXY
     const [x2, y2] = this.targetXY
     let neatPoint = []
@@ -338,13 +355,20 @@ class Link {
     this.p.lineTo(x2, y2)
   }
 
-  private drawTurnLine(sourceDirPoint: DirectionPoint, targetDirPoint: DirectionPoint, turnPoint: Coordinate) {
+  private drawTurnLine(
+    sourceDirPoint: DirectionPoint,
+    targetDirPoint: DirectionPoint,
+    turnPoint: Coordinate
+  ) {
     const [xt, yt] = turnPoint
     const [x1, y1] = this.sourceXY
     const [x2, y2] = this.targetXY
     let startMoveXY = ''
 
-    if (sourceDirPoint.direction == 'negative' && sourceDirPoint.direction == targetDirPoint.direction) {
+    if (
+      sourceDirPoint.direction == 'negative' &&
+      sourceDirPoint.direction == targetDirPoint.direction
+    ) {
       startMoveXY = sourceDirPoint.negTrunXY
     } else {
       if (sourceDirPoint.direction == 'positive') {
@@ -354,7 +378,7 @@ class Link {
       }
     }
     if (!startMoveXY) {
-      throw new Error("not startMoveXY")
+      throw new Error('not startMoveXY')
     }
     this.p.moveTo(x1, y1)
     switch (startMoveXY) {
@@ -380,7 +404,7 @@ class Link {
       this.lineId = nodeId
     }
     if (this.pathEl) {
-      this.pathEl.remove();
+      this.pathEl.remove()
     }
     this.pathEl = this.svgEl.append('path').attr('lineId', this.lineId)
 
@@ -395,13 +419,25 @@ class Link {
       this.p.moveTo(...this.sourceXY)
       this.p.lineTo(...this.targetXY)
     } else {
-      const sourceDirPoint = this.getDirectionPoint(this.sourceXY, this.targetXY, this.outDir)
-      const targetDirPoint = this.getDirectionPoint(this.targetXY, this.sourceXY, this.inDir)
+      const sourceDirPoint = this.getDirectionPoint(
+        this.sourceXY,
+        this.targetXY,
+        this.outDir
+      )
+      const targetDirPoint = this.getDirectionPoint(
+        this.targetXY,
+        this.sourceXY,
+        this.inDir
+      )
       // 一正点一反点----------------------------
       if (sourceDirPoint.direction != targetDirPoint.direction) {
         // 一正一反是同一点(拐弯连接)
         if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
-          this.drawTurnLine(sourceDirPoint, targetDirPoint, this.InflectionPoint ? this.InflectionPoint : this.centerPoint)
+          this.drawTurnLine(
+            sourceDirPoint,
+            targetDirPoint,
+            this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+          )
         } else {
           // 一正一反是不同点(整齐连接)
           this.drawNeatLine(sourceDirPoint, targetDirPoint)
@@ -413,7 +449,11 @@ class Link {
           this.drawNeatLine(sourceDirPoint, targetDirPoint)
         } else {
           // 不同点(拐弯连接)
-          this.drawTurnLine(sourceDirPoint, targetDirPoint, this.InflectionPoint ? this.InflectionPoint : this.centerPoint)
+          this.drawTurnLine(
+            sourceDirPoint,
+            targetDirPoint,
+            this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+          )
         }
       }
     }
@@ -473,26 +513,8 @@ class Link {
     this.targetOriginXY = this.targetNode.coordinateXY[this.inDir]
     this.centerPoint = this.getCentrePoint(this.sourceXY, this.targetXY)
   }
-
 }
-type Coordinate = [number, number]
-
-const getTextLength = (text: string) => {
-  let len = 0
-  let i = 0
-  while (i < text.length) {
-    if (text.charCodeAt(i) > 127 || text.charCodeAt(i) == 94) {
-      len += 2
-    } else {
-      len++
-    }
-    i++
-  }
-  return len
-}
-
 class FlowChart {
-  private selectAll: any
   private _svg: any
   private nodes: Node[] = []
   private links: Link[] = []
@@ -562,23 +584,25 @@ class FlowChart {
       lines * this.options.lineHeight + padding[0] * 2,
       minHeight
     )
-    this.nodes.push(new Node({
-      name,
-      center: [x, y],
-      width,
-      height,
-      text: textSpl,
-      style: {
-        padding,
-        fontSize,
-        fontColor,
-        borderColor,
-        backgroundColor,
-        lineHeight: this.options.lineHeight,
-        borderRadius
-      },
-      extendLength
-    }))
+    this.nodes.push(
+      new Node({
+        name,
+        center: [x, y],
+        width,
+        height,
+        text: textSpl,
+        style: {
+          padding,
+          fontSize,
+          fontColor,
+          borderColor,
+          backgroundColor,
+          lineHeight: this.options.lineHeight,
+          borderRadius
+        },
+        extendLength
+      })
+    )
     return this
   }
   public addEdge(
@@ -616,47 +640,41 @@ class FlowChart {
       ? direction.split('-')
       : defaultDir.split('-')
 
-    const link = new Link(
-      {
-        sourceNode: sourceExist,
-        targetNode: targetExist,
-        outDir: outDir,
-        inDir: inDir,
-        sourceXY: sourceExist.coordinateXY['ex' + outDir],
-        sourceOriginXY: sourceExist.coordinateXY[outDir],
-        targetXY: targetExist.coordinateXY['ex' + inDir],
-        targetOriginXY: targetExist.coordinateXY[inDir],
-        style: {
-          color,
-          width
-        }
+    const link = new Link({
+      sourceNode: sourceExist,
+      targetNode: targetExist,
+      outDir: outDir,
+      inDir: inDir,
+      sourceXY: sourceExist.coordinateXY['ex' + outDir],
+      sourceOriginXY: sourceExist.coordinateXY[outDir],
+      targetXY: targetExist.coordinateXY['ex' + inDir],
+      targetOriginXY: targetExist.coordinateXY[inDir],
+      style: {
+        color,
+        width
       }
-    )
+    })
     this.links.push(link)
     sourceExist.links.push(link)
     targetExist.targetLinks.push(link)
     return this
   }
-  private init() {
-    this.selectAll = selectAll
-
-  }
   public render() {
-    this.init()
     this._svg.html('') // clear svg content for rerender
     this.nodes.forEach((d: Node, ind) => {
-      const nodeAndLinksSVG = this._svg.append('g').attr('class', 'paro-box' + ind).attr('boxId', ind)
+      const nodeAndLinksSVG = this._svg
+        .append('g')
+        .attr('class', 'paro-box' + ind)
+        .attr('boxId', ind)
       d.drawNode(nodeAndLinksSVG, ind)
       d.drawLinks()
     })
   }
-
   public drag() {
-
-    //间隔差值 防止拖动原点发生变化
+    //rect间隔差值 防止拖动原点发生变化
     let xd: number
     let yd: number
-    //文字差值
+    //tspan间隔差值
     let xt: number
     let yt: number
     const _nodes = this.nodes
@@ -664,15 +682,16 @@ class FlowChart {
     const currentSvg = this._svg
 
     const dragEvent: any = drag()
-      .on("drag", function (d: any) {
+      .on('drag', function(d: any) {
         const id = select(this).attr('rectId')
         //拖动过程中补充差值
         select(this)
-          .attr("x", event.x - xd)
-          .attr("y", event.y - yd)
-        currentSvg.selectAll('.paro-node-tspan' + id)
-          .attr("x", event.x - xt)
-          .attr("y", event.y - yt)
+          .attr('x', event.x - xd)
+          .attr('y', event.y - yd)
+        currentSvg
+          .selectAll('.paro-node-tspan' + id)
+          .attr('x', event.x - xt)
+          .attr('y', event.y - yt)
 
         //重绘此id下的line(需要先改变Node的xy等属性)
         _nodes.forEach((d: Node) => {
@@ -683,18 +702,19 @@ class FlowChart {
             d.drawTargetLinks()
           }
         })
-
-
       })
-      .on("start", function (d: any) {
+      .on('start', function(d: any) {
         // 设置rect的间隔差值
         xd = event.x - parseFloat(select(this).attr('x'))
         yd = event.y - parseFloat(select(this).attr('y'))
         // 设置tspan的间隔差值
         const id = select(this).attr('rectId')
-        xt = event.x - parseFloat(currentSvg.selectAll('.paro-node-tspan' + id).attr('x'))
-        yt = event.y - parseFloat(currentSvg.selectAll('.paro-node-tspan' + id).attr('y'))
-
+        xt =
+          event.x -
+          parseFloat(currentSvg.selectAll('.paro-node-tspan' + id).attr('x'))
+        yt =
+          event.y -
+          parseFloat(currentSvg.selectAll('.paro-node-tspan' + id).attr('y'))
       })
 
     currentSvg.selectAll('.paro-node-rect').call(dragEvent)
