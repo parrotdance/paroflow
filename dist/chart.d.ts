@@ -1,4 +1,3 @@
-declare type LinkPattern = 'xy' | 'yx' | 'xyx' | 'yxy'
 interface FlowChartInitialOptions {
   width?: number
   height?: number
@@ -22,21 +21,19 @@ interface FlowChartNodeOptions {
   minWidth?: number
   minHeight?: number
   extendLength?: number
+  borderRadius?: number
 }
 interface FlowChartEdgeOptions {
   direction?: string
   color?: string
   width?: number
-  pattern?: LinkPattern
 }
 declare class FlowChart {
   private _svg
   private nodes
-  private edges
+  private links
   private options
   constructor(selector: string, options?: FlowChartInitialOptions)
-  private getBoundPoint
-  private drawLinkLine
   addNode(
     name: string,
     x: number,
@@ -46,5 +43,6 @@ declare class FlowChart {
   ): this
   addEdge(source: string, target: string, options?: FlowChartEdgeOptions): this
   render(): void
+  drag(): void
 }
 export default FlowChart
