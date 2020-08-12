@@ -1,7 +1,10 @@
-import { event, drag, path, select } from 'd3'
+import { event, select } from 'd3-selection'
+import { drag } from 'd3-drag'
+import { path } from 'd3-path'
 
 type EdgeDirection = 'top' | 'right' | 'bottom' | 'left'
 type PointDirection = 'negative' | 'positive'
+type LinkType = 'default' | 'normal'
 type Coordinate = [number, number]
 
 interface FlowChartInitialOptions {
@@ -17,6 +20,7 @@ interface FlowChartInitialOptions {
   nodeMinWidth?: number
   nodeMinHeight?: number
   extendLength?: number
+  linkType?: LinkType
 }
 interface FlowChartNodeOptions {
   padding?: [number, number]
@@ -33,15 +37,50 @@ interface FlowChartEdgeOptions {
   direction?: string
   color?: string
   width?: number
+  linkType?: LinkType
 }
 interface Dictionary<T = any> {
   [index: string]: T
+}
+interface NodeOpt {
+  name: string
+  nodeId?: number
+  center: [number, number]
+  width: number
+  height: number
+  text?: string[]
+  extendLength?: number
+  coordinateXY?: Dictionary<Coordinate>
+  style?: Dictionary
+  links?: Link[]
+  targetLinks?: Link[]
+  svgEl?: any
+  svgNode?: any
+}
+interface LinkOpt {
+  p?: any
+  pathEl?: any
+  sourceNode: Node
+  targetNode: Node
+  sourceXY: Coordinate
+  sourceOriginXY: Coordinate
+  targetXY: Coordinate
+  targetOriginXY: Coordinate
+  centerPoint?: Coordinate
+  //InflectionPoint must in rect
+  InflectionPoint?: Coordinate
+  outDir: EdgeDirection
+  inDir: EdgeDirection
+  svgEl?: any
+  lineId?: number
+  style: Dictionary
+  linkType: LinkType
 }
 const getTextLength = (text: string) => {
   let len = 0
   let i = 0
   while (i < text.length) {
-    if (text.charCodeAt(i) > 127 || text.charCodeAt(i) == 94) {
+    if (text.charCodeAt(i) > 127 || text.charCodeAt(i) === 94) {
       len += 2
     } else {
       len++
@@ -52,7 +91,7 @@ const getTextLength = (text: string) => {
 }
 class Node {
   name: string
-  nodeId: number
+  nodeId?: number
   center: [number, number] = [0, 0]
   width: number
   height: number
@@ -63,13 +102,13 @@ class Node {
   links: Link[] = []
   targetLinks: Link[] = []
   svgEl: any
-  constructor(nodeArg: any) {
+  svgNode: any
+  constructor(nodeArg: NodeOpt) {
     this.name = nodeArg.name
-    this.nodeId = nodeArg.nodeId
     this.center = nodeArg.center
     this.width = nodeArg.width || 0
     this.height = nodeArg.height || 0
-    this.text = nodeArg.text
+    this.text = nodeArg.text || ['']
     this.extendLength = nodeArg.extendLength || 0
     this.coordinateXY.top = this.getBoundPoint(this, 'top', false)
     this.coordinateXY.left = this.getBoundPoint(this, 'left', false)
@@ -79,8 +118,7 @@ class Node {
     this.coordinateXY.exleft = this.getBoundPoint(this, 'left', true)
     this.coordinateXY.exbottom = this.getBoundPoint(this, 'bottom', true)
     this.coordinateXY.exright = this.getBoundPoint(this, 'right', true)
-    this.style = nodeArg.style
-    this.svgEl = nodeArg.svgEl
+    this.style = nodeArg.style || {}
   }
 
   private getBoundPoint(node: Node, dir: EdgeDirection, extend: boolean) {
@@ -108,22 +146,16 @@ class Node {
   public drawNode(_svg: any, boxId: number) {
     this.nodeId = boxId
     this.svgEl = _svg
-    const g = _svg
+    this.svgNode = _svg
       .append('g')
       .attr('class', 'paro-node' + boxId)
       .attr('nodeId', boxId)
     const { width, height } = this
     const [cx, cy] = this.center
-    const {
-      borderColor,
-      backgroundColor,
-      fontColor,
-      borderRadius,
-      lineHeight,
-      fontSize
-    } = this.style
+    const { borderColor, backgroundColor, borderRadius } = this.style
     // render rect
-    g.append('rect')
+    this.svgNode
+      .append('rect')
       .attr('rectId', boxId)
       .attr('class', 'paro-node-rect')
       .attr('x', cx - width / 2)
@@ -136,10 +168,16 @@ class Node {
       .attr('rx', borderRadius)
       .attr('ry', borderRadius)
     // render text
-    const t = g
+    this.drawTexts()
+  }
+
+  public drawTexts() {
+    const { fontColor, lineHeight, fontSize } = this.style
+    this.svgNode.selectAll('text').remove()
+    const t = this.svgNode
       .append('text')
-      .attr('textId', boxId)
-      .attr('class', 'paro-node-text' + boxId)
+      .attr('textId', this.nodeId)
+      .attr('class', 'paro-node-text' + this.nodeId)
       .attr('text-anchor', 'middle')
       .attr('font-size', fontSize)
       .attr('fill', fontColor)
@@ -156,7 +194,7 @@ class Node {
     this.text.forEach((str: string, i: number) => {
       const y = this.center[1] + textPosYOffset + i * lineHeight + STATIC_OFFSET
       t.append('tspan')
-        .attr('class', 'paro-node-tspan' + boxId)
+        .attr('class', 'paro-node-tspan' + this.nodeId)
         .attr('x', this.center[0])
         .attr('y', y)
         .text(str)
@@ -227,8 +265,9 @@ class Link {
   svgEl: any
   lineId?: number
   style: Dictionary = {}
+  linkType: LinkType
 
-  constructor(linkArg: any) {
+  constructor(linkArg: LinkOpt) {
     this.sourceNode = linkArg.sourceNode
     this.targetNode = linkArg.targetNode
     this.sourceXY = linkArg.sourceXY
@@ -240,21 +279,18 @@ class Link {
     this.outDir = linkArg.outDir
     this.inDir = linkArg.inDir
     this.style = linkArg.style
+    this.linkType = linkArg.linkType
   }
 
   // Is the line formed by two points parallel to the coordinate axis
   private isParallelAxis(a: Coordinate, b: Coordinate) {
     const [x1, y1] = a
     const [x2, y2] = b
-    if (x1 == x2 || y1 == y2) {
-      return true
-    } else {
-      return false
-    }
+    return x1 === x2 || y1 === y2
   }
 
   private isSamePoint(p1: Coordinate, p2: Coordinate): boolean {
-    return p1.toString() == p2.toString()
+    return p1.toString() === p2.toString()
   }
 
   private getCentrePoint(a: Coordinate, b: Coordinate): Coordinate {
@@ -340,12 +376,19 @@ class Link {
     const [x1, y1] = this.sourceXY
     const [x2, y2] = this.targetXY
     let neatPoint = []
-    if (sourceDirPoint.direction == 'positive') {
-      neatPoint = sourceDirPoint.point
-    } else if (targetDirPoint.direction == 'positive') {
-      neatPoint = targetDirPoint.point
-    } else {
+    if (
+      sourceDirPoint.direction !== targetDirPoint.direction &&
+      this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)
+    ) {
       neatPoint = sourceDirPoint.otherPoint
+    } else {
+      if (targetDirPoint.direction === 'positive') {
+        neatPoint = targetDirPoint.point
+      } else if (sourceDirPoint.direction === 'positive') {
+        neatPoint = sourceDirPoint.point
+      } else {
+        neatPoint = sourceDirPoint.otherPoint
+      }
     }
 
     const [xn, yn] = neatPoint
@@ -366,14 +409,14 @@ class Link {
     let startMoveXY = ''
 
     if (
-      sourceDirPoint.direction == 'negative' &&
-      sourceDirPoint.direction == targetDirPoint.direction
+      sourceDirPoint.direction === 'negative' &&
+      sourceDirPoint.direction === targetDirPoint.direction
     ) {
       startMoveXY = sourceDirPoint.negTrunXY
     } else {
-      if (sourceDirPoint.direction == 'positive') {
+      if (sourceDirPoint.direction === 'positive') {
         startMoveXY = sourceDirPoint.posTrunXY
-      } else if (targetDirPoint.direction == 'positive') {
+      } else if (targetDirPoint.direction === 'positive') {
         startMoveXY = targetDirPoint.posTrunXY
       }
     }
@@ -395,7 +438,58 @@ class Link {
     this.p.lineTo(x2, y2)
   }
 
-  public drawLinkLine(nodeId: any = undefined, _svg: any = undefined) {
+  private defaultRuleLink(
+    sourceDirPoint: DirectionPoint,
+    targetDirPoint: DirectionPoint
+  ) {
+    if (
+      sourceDirPoint.direction === targetDirPoint.direction &&
+      sourceDirPoint.direction === 'negative'
+    ) {
+      this.drawTurnLine(
+        sourceDirPoint,
+        targetDirPoint,
+        this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+      )
+    } else {
+      this.drawNeatLine(sourceDirPoint, targetDirPoint)
+    }
+  }
+
+  private normalRuleLink(
+    sourceDirPoint: DirectionPoint,
+    targetDirPoint: DirectionPoint
+  ) {
+    // 一正点一反点----------------------------
+    if (sourceDirPoint.direction !== targetDirPoint.direction) {
+      // 一正一反是同一点(拐弯连接)
+      if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
+        this.drawTurnLine(
+          sourceDirPoint,
+          targetDirPoint,
+          this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+        )
+      } else {
+        // 一正一反是不同点(整齐连接)
+        this.drawNeatLine(sourceDirPoint, targetDirPoint)
+      }
+    } else {
+      //两个有相同方位（正 | 反）点----------------------------
+      // 同一点(整齐连接)
+      if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
+        this.drawNeatLine(sourceDirPoint, targetDirPoint)
+      } else {
+        // 不同点(拐弯连接)
+        this.drawTurnLine(
+          sourceDirPoint,
+          targetDirPoint,
+          this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+        )
+      }
+    }
+  }
+
+  public drawLinkLine(nodeId?: number, _svg?: any) {
     this.p = path()
     if (!this.svgEl) {
       this.svgEl = _svg
@@ -429,32 +523,15 @@ class Link {
         this.sourceXY,
         this.inDir
       )
-      // 一正点一反点----------------------------
-      if (sourceDirPoint.direction != targetDirPoint.direction) {
-        // 一正一反是同一点(拐弯连接)
-        if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
-          this.drawTurnLine(
-            sourceDirPoint,
-            targetDirPoint,
-            this.InflectionPoint ? this.InflectionPoint : this.centerPoint
-          )
-        } else {
-          // 一正一反是不同点(整齐连接)
-          this.drawNeatLine(sourceDirPoint, targetDirPoint)
-        }
-      } else {
-        //两个有相同方位（正 | 反）点----------------------------
-        // 同一点(整齐连接)
-        if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
-          this.drawNeatLine(sourceDirPoint, targetDirPoint)
-        } else {
-          // 不同点(拐弯连接)
-          this.drawTurnLine(
-            sourceDirPoint,
-            targetDirPoint,
-            this.InflectionPoint ? this.InflectionPoint : this.centerPoint
-          )
-        }
+      switch (this.linkType) {
+        case 'default':
+          //连线规则1
+          this.defaultRuleLink(sourceDirPoint, targetDirPoint)
+          break
+        case 'normal':
+          // 连线规则2
+          this.normalRuleLink(sourceDirPoint, targetDirPoint)
+          break
       }
     }
 
@@ -518,6 +595,7 @@ class FlowChart {
   private _svg: any
   private nodes: Node[] = []
   private links: Link[] = []
+  public linkType: LinkType
   private options: any = {
     width: 800,
     height: 600,
@@ -533,6 +611,7 @@ class FlowChart {
     extendLength: 12
   }
   constructor(selector: string, options: FlowChartInitialOptions = {}) {
+    this.linkType = options.linkType || 'default'
     let k: keyof FlowChartInitialOptions
     for (k in options) {
       if (this.options[k]) {
@@ -540,6 +619,7 @@ class FlowChart {
       }
     }
     const { width, height } = this.options
+
     this._svg = select(selector)
     this._svg.attr('width', width)
     this._svg.attr('height', height)
@@ -616,6 +696,8 @@ class FlowChart {
       width = this.options.edgeWidth
     } = options
 
+    let { linkType } = options
+
     const defaultDir = 'right-left'
     if (direction && !direction.includes('-')) {
       console.warn(
@@ -640,11 +722,14 @@ class FlowChart {
       ? direction.split('-')
       : defaultDir.split('-')
 
+    if (!linkType) {
+      linkType = this.linkType
+    }
     const link = new Link({
       sourceNode: sourceExist,
       targetNode: targetExist,
-      outDir: outDir,
-      inDir: inDir,
+      outDir: outDir as EdgeDirection,
+      inDir: inDir as EdgeDirection,
       sourceXY: sourceExist.coordinateXY['ex' + outDir],
       sourceOriginXY: sourceExist.coordinateXY[outDir],
       targetXY: targetExist.coordinateXY['ex' + inDir],
@@ -652,7 +737,8 @@ class FlowChart {
       style: {
         color,
         width
-      }
+      },
+      linkType
     })
     this.links.push(link)
     sourceExist.links.push(link)
@@ -674,47 +760,31 @@ class FlowChart {
     //rect间隔差值 防止拖动原点发生变化
     let xd: number
     let yd: number
-    //tspan间隔差值
-    let xt: number
-    let yt: number
     const _nodes = this.nodes
-
     const currentSvg = this._svg
 
     const dragEvent: any = drag()
-      .on('drag', function(d: any) {
+      .on('drag', function() {
         const id = select(this).attr('rectId')
         //拖动过程中补充差值
         select(this)
           .attr('x', event.x - xd)
           .attr('y', event.y - yd)
-        currentSvg
-          .selectAll('.paro-node-tspan' + id)
-          .attr('x', event.x - xt)
-          .attr('y', event.y - yt)
 
         //重绘此id下的line(需要先改变Node的xy等属性)
         _nodes.forEach((d: Node) => {
-          if (d.nodeId.toString() == id) {
+          if (d.nodeId !== undefined && d.nodeId.toString() === id) {
             d.changeXY([event.x - xd, event.y - yd])
-
+            d.drawTexts()
             d.drawLinks()
             d.drawTargetLinks()
           }
         })
       })
-      .on('start', function(d: any) {
+      .on('start', function() {
         // 设置rect的间隔差值
         xd = event.x - parseFloat(select(this).attr('x'))
         yd = event.y - parseFloat(select(this).attr('y'))
-        // 设置tspan的间隔差值
-        const id = select(this).attr('rectId')
-        xt =
-          event.x -
-          parseFloat(currentSvg.selectAll('.paro-node-tspan' + id).attr('x'))
-        yt =
-          event.y -
-          parseFloat(currentSvg.selectAll('.paro-node-tspan' + id).attr('y'))
       })
 
     currentSvg.selectAll('.paro-node-rect').call(dragEvent)

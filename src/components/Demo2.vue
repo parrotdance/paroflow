@@ -19,7 +19,8 @@ export default class Demo2 extends Vue {
     const flowChart = new FlowChart('#demo2', {
       edgeColor: '#000000',
       nodeBorderColor: '#000000',
-      height: 300
+      height: 300,
+      linkType: 'normal'
     })
     flowChart
       // .addNode('a', 400, 60, 'A', { backgroundColor: '#409EFF' })
@@ -40,11 +41,14 @@ export default class Demo2 extends Vue {
       // .addEdge('e', 'c', { direction: 'right-left' })
       // .addEdge('e', 'd', { direction: 'bottom-top' })
 
-      .addNode('a', 400, 60, 'A', { backgroundColor: '#409EFF' })
+      .addNode('a', 300, 60, 'A', { backgroundColor: '#409EFF' })
       .addNode('b', 200, 150, 'B', { backgroundColor: '#67C23A' })
       .addNode('c', 600, 150, 'C', { backgroundColor: '#E6A23C' })
       .addNode('d', 400, 240, 'D', { backgroundColor: '#F56C6C' })
       .addNode('e', 400, 150, 'E', { backgroundColor: '#909399' })
+      .addEdge('b', 'a', { direction: 'right-left', linkType: 'default' })
+      .addEdge('b', 'd', { direction: 'right-left' })
+
     flowChart.render()
     flowChart.drag()
   }
