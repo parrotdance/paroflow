@@ -1,3 +1,4 @@
+declare type LinkType = 'sourceBeam' | 'targetBeam' | 'normal'
 interface FlowChartInitialOptions {
   width?: number
   height?: number
@@ -11,6 +12,7 @@ interface FlowChartInitialOptions {
   nodeMinWidth?: number
   nodeMinHeight?: number
   extendLength?: number
+  linkType?: LinkType
 }
 interface FlowChartNodeOptions {
   padding?: [number, number]
@@ -27,11 +29,13 @@ interface FlowChartEdgeOptions {
   direction?: string
   color?: string
   width?: number
+  linkType?: LinkType
 }
 declare class FlowChart {
   private _svg
   private nodes
   private links
+  linkType: LinkType
   private options
   constructor(selector: string, options?: FlowChartInitialOptions)
   addNode(

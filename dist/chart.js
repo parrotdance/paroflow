@@ -1,6 +1,6 @@
-import { event, select } from 'd3-selection'
 import { drag } from 'd3-drag'
 import { path } from 'd3-path'
+import { event, select } from 'd3-selection'
 const getTextLength = text => {
   let len = 0
   let i = 0
@@ -45,8 +45,8 @@ class Node {
       height,
       extendLength
     } = node
-    let dx = 0,
-      dy = 0
+    let dx = 0
+    let dy = 0
     const finalExtendLength = extend ? extendLength || this.extendLength : 0
     if (dir === 'top') {
       dy = -0.5 * height - finalExtendLength
@@ -64,7 +64,7 @@ class Node {
     this.svgEl = _svg
     this.svgNode = _svg
       .append('g')
-      .attr('class', 'paro-node' + boxId)
+      .attr('class', `paro-node-${boxId}`)
       .attr('nodeId', boxId)
     const { width, height } = this
     const [cx, cy] = this.center
@@ -156,7 +156,7 @@ class DirectionPoint {
   }
 }
 class Link {
-  constructor(linkArg) {
+  constructor(options) {
     this.sourceXY = [0, 0]
     this.sourceOriginXY = [0, 0]
     this.targetXY = [0, 0]
@@ -165,19 +165,19 @@ class Link {
     this.outDir = 'right'
     this.inDir = 'left'
     this.style = {}
-    this.sourceNode = linkArg.sourceNode
-    this.targetNode = linkArg.targetNode
-    this.sourceXY = linkArg.sourceXY
-    this.sourceOriginXY = linkArg.sourceOriginXY
-    this.targetXY = linkArg.targetXY
-    this.targetOriginXY = linkArg.targetOriginXY
+    this.sourceNode = options.sourceNode
+    this.targetNode = options.targetNode
+    this.sourceXY = options.sourceXY
+    this.sourceOriginXY = options.sourceOriginXY
+    this.targetXY = options.targetXY
+    this.targetOriginXY = options.targetOriginXY
     this.centerPoint = this.getCentrePoint(this.sourceXY, this.targetXY)
-    this.InflectionPoint = linkArg.InflectionPoint
-    this.outDir = linkArg.outDir
-    this.inDir = linkArg.inDir
-    this.style = linkArg.style
+    this.InflectionPoint = options.InflectionPoint
+    this.outDir = options.outDir
+    this.inDir = options.inDir
+    this.style = options.style
+    this.linkType = options.linkType
   }
-  // Is the line formed by two points parallel to the coordinate axis
   isParallelAxis(a, b) {
     const [x1, y1] = a
     const [x2, y2] = b
@@ -263,29 +263,21 @@ class Link {
     ) {
       neatPoint = sourceDirPoint.otherPoint
     } else {
-      if (targetDirPoint.direction === 'positive') {
-        neatPoint = targetDirPoint.point
-      } else if (sourceDirPoint.direction === 'positive') {
-        neatPoint = sourceDirPoint.point
-      } else {
-        neatPoint = sourceDirPoint.otherPoint
+      let defaultStartDirPoint = targetDirPoint
+      let defaultEndDirPoint = sourceDirPoint
+      console.log(this.linkType)
+      if (this.linkType === 'targetBeam') {
+        defaultStartDirPoint = sourceDirPoint
+        defaultEndDirPoint = targetDirPoint
+        console.log(123)
       }
-    }
-    const [xn, yn] = neatPoint
-    this.p.moveTo(x1, y1)
-    this.p.lineTo(xn, yn)
-    this.p.lineTo(x2, y2)
-  }
-  drawNeatLineType2(sourceDirPoint, targetDirPoint) {
-    const [x1, y1] = this.sourceXY
-    const [x2, y2] = this.targetXY
-    let neatPoint = []
-    if (sourceDirPoint.direction === 'positive') {
-      neatPoint = sourceDirPoint.point
-    } else if (targetDirPoint.direction === 'positive') {
-      neatPoint = targetDirPoint.point
-    } else {
-      neatPoint = sourceDirPoint.otherPoint
+      if (defaultStartDirPoint.direction === 'positive') {
+        neatPoint = defaultStartDirPoint.point
+      } else if (defaultEndDirPoint.direction === 'positive') {
+        neatPoint = defaultEndDirPoint.point
+      } else {
+        neatPoint = defaultEndDirPoint.otherPoint
+      }
     }
     const [xn, yn] = neatPoint
     this.p.moveTo(x1, y1)
@@ -325,6 +317,49 @@ class Link {
     }
     this.p.lineTo(x2, y2)
   }
+  defaultRuleLink(sourceDirPoint, targetDirPoint) {
+    if (
+      sourceDirPoint.direction === targetDirPoint.direction &&
+      sourceDirPoint.direction === 'negative'
+    ) {
+      this.drawTurnLine(
+        sourceDirPoint,
+        targetDirPoint,
+        this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+      )
+    } else {
+      this.drawNeatLine(sourceDirPoint, targetDirPoint)
+    }
+  }
+  normalRuleLink(sourceDirPoint, targetDirPoint) {
+    // 一正点一反点
+    if (sourceDirPoint.direction !== targetDirPoint.direction) {
+      // 一正一反是同一点(拐弯连接)
+      if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
+        this.drawTurnLine(
+          sourceDirPoint,
+          targetDirPoint,
+          this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+        )
+      } else {
+        // 一正一反是不同点(整齐连接)
+        this.drawNeatLine(sourceDirPoint, targetDirPoint)
+      }
+    } else {
+      // 两个有相同方位（正 | 反）点
+      // 同一点 (整齐连接)
+      if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
+        this.drawNeatLine(sourceDirPoint, targetDirPoint)
+      } else {
+        // 不同点 (拐弯连接)
+        this.drawTurnLine(
+          sourceDirPoint,
+          targetDirPoint,
+          this.InflectionPoint ? this.InflectionPoint : this.centerPoint
+        )
+      }
+    }
+  }
   drawLinkLine(nodeId, _svg) {
     this.p = path()
     if (!this.svgEl) {
@@ -357,49 +392,17 @@ class Link {
         this.sourceXY,
         this.inDir
       )
-      //连线规则1
-      // 一正点一反点----------------------------
-      // if (sourceDirPoint.direction !== targetDirPoint.direction) {
-      //   // 一正一反是同一点(拐弯连接)
-      //   if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
-      //     this.drawTurnLine(
-      //       sourceDirPoint,
-      //       targetDirPoint,
-      //       this.InflectionPoint ? this.InflectionPoint : this.centerPoint
-      //     )
-      //   } else {
-      //     // 一正一反是不同点(整齐连接)
-      //     this.drawNeatLine(sourceDirPoint, targetDirPoint)
-      //   }
-      // } else {
-      //   //两个有相同方位（正 | 反）点----------------------------
-      //   // 同一点(整齐连接)
-      //   if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
-      //     this.drawNeatLine(sourceDirPoint, targetDirPoint)
-      //   } else {
-      //     // 不同点(拐弯连接)
-      //     this.drawTurnLine(
-      //       sourceDirPoint,
-      //       targetDirPoint,
-      //       this.InflectionPoint ? this.InflectionPoint : this.centerPoint
-      //     )
-      //   }
-      // }
-      //连线规则1 end
-      // 连线规则2
-      if (
-        sourceDirPoint.direction === targetDirPoint.direction &&
-        sourceDirPoint.direction === 'negative'
-      ) {
-        this.drawTurnLine(
-          sourceDirPoint,
-          targetDirPoint,
-          this.InflectionPoint ? this.InflectionPoint : this.centerPoint
-        )
-      } else {
-        this.drawNeatLine(sourceDirPoint, targetDirPoint)
+      switch (this.linkType) {
+        case 'sourceBeam':
+        case 'targetBeam':
+          //连线规则1
+          this.defaultRuleLink(sourceDirPoint, targetDirPoint)
+          break
+        case 'normal':
+          // 连线规则2
+          this.normalRuleLink(sourceDirPoint, targetDirPoint)
+          break
       }
-      // 连线规则2 end
     }
     this.drawExtendLinkArrow(this.p)
     this.pathEl.attr('d', this.p.toString())
@@ -472,6 +475,7 @@ class FlowChart {
       nodeMinHeight: 50,
       extendLength: 12
     }
+    this.linkType = options.linkType || 'sourceBeam'
     let k
     for (k in options) {
       if (this.options[k]) {
@@ -542,6 +546,7 @@ class FlowChart {
       color = this.options.edgeColor,
       width = this.options.edgeWidth
     } = options
+    let { linkType } = options
     const defaultDir = 'right-left'
     if (direction && !direction.includes('-')) {
       console.warn(
@@ -552,19 +557,22 @@ class FlowChart {
     const targetExist = this.nodes.find(node => node.name === target)
     if (!sourceExist) {
       console.error(
-        `[P-Flow warn]: Can't find source node: ${source}.\n\nPlease check if add node correctly before or add it before call render().`
+        `[Paroflow warn]: Can't find source node: ${source}.\n\nPlease check if add node correctly before or add it before call render().`
       )
       return this
     }
     if (!targetExist) {
       console.error(
-        `[P-Flow warn]: Can't find target node: ${target}.\n\nPlease check if add node correctly before or add it before call render().`
+        `[Paroflow warn]: Can't find target node: ${target}.\n\nPlease check if add node correctly before or add it before call render().`
       )
       return this
     }
     const [outDir, inDir] = direction
       ? direction.split('-')
       : defaultDir.split('-')
+    if (!linkType) {
+      linkType = this.linkType
+    }
     const link = new Link({
       sourceNode: sourceExist,
       targetNode: targetExist,
@@ -577,7 +585,8 @@ class FlowChart {
       style: {
         color,
         width
-      }
+      },
+      linkType
     })
     this.links.push(link)
     sourceExist.links.push(link)
@@ -596,19 +605,17 @@ class FlowChart {
     })
   }
   drag() {
-    //rect间隔差值 防止拖动原点发生变化
+    // rect 间隔差值 防止拖动原点发生变化
     let xd
     let yd
     const _nodes = this.nodes
-    const currentSvg = this._svg
     const dragEvent = drag()
       .on('drag', function() {
         const id = select(this).attr('rectId')
-        //拖动过程中补充差值
         select(this)
           .attr('x', event.x - xd)
           .attr('y', event.y - yd)
-        //重绘此id下的line(需要先改变Node的xy等属性)
+        // re-render lines belong this id
         _nodes.forEach(d => {
           if (d.nodeId !== undefined && d.nodeId.toString() === id) {
             d.changeXY([event.x - xd, event.y - yd])
@@ -619,11 +626,10 @@ class FlowChart {
         })
       })
       .on('start', function() {
-        // 设置rect的间隔差值
         xd = event.x - parseFloat(select(this).attr('x'))
         yd = event.y - parseFloat(select(this).attr('y'))
       })
-    currentSvg.selectAll('.paro-node-rect').call(dragEvent)
+    this._svg.selectAll('.paro-node-rect').call(dragEvent)
   }
 }
 export default FlowChart
