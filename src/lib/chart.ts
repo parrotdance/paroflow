@@ -1,6 +1,6 @@
-import { event, select } from 'd3-selection'
 import { drag } from 'd3-drag'
 import { path } from 'd3-path'
+import { event, select } from 'd3-selection'
 
 type EdgeDirection = 'top' | 'right' | 'bottom' | 'left'
 type PointDirection = 'negative' | 'positive'
@@ -42,7 +42,7 @@ interface FlowChartEdgeOptions {
 interface Dictionary<T = any> {
   [index: string]: T
 }
-interface NodeOpt {
+interface NodeOption {
   name: string
   nodeId?: number
   center: [number, number]
@@ -57,7 +57,7 @@ interface NodeOpt {
   svgEl?: any
   svgNode?: any
 }
-interface LinkOpt {
+interface LinkOptions {
   p?: any
   pathEl?: any
   sourceNode: Node
@@ -67,7 +67,7 @@ interface LinkOpt {
   targetXY: Coordinate
   targetOriginXY: Coordinate
   centerPoint?: Coordinate
-  //InflectionPoint must in rect
+  // InflectionPoint must be in rect
   InflectionPoint?: Coordinate
   outDir: EdgeDirection
   inDir: EdgeDirection
@@ -103,7 +103,7 @@ class Node {
   targetLinks: Link[] = []
   svgEl: any
   svgNode: any
-  constructor(nodeArg: NodeOpt) {
+  constructor(nodeArg: NodeOption) {
     this.name = nodeArg.name
     this.center = nodeArg.center
     this.width = nodeArg.width || 0
@@ -121,15 +121,19 @@ class Node {
     this.style = nodeArg.style || {}
   }
 
-  private getBoundPoint(node: Node, dir: EdgeDirection, extend: boolean) {
+  private getBoundPoint(
+    node: Node,
+    dir: EdgeDirection,
+    extend: boolean
+  ): Coordinate {
     const {
       center: [x, y],
       width,
       height,
       extendLength
     } = node
-    let dx = 0,
-      dy = 0
+    let dx = 0
+    let dy = 0
     const finalExtendLength = extend ? extendLength || this.extendLength : 0
     if (dir === 'top') {
       dy = -0.5 * height - finalExtendLength
@@ -140,15 +144,15 @@ class Node {
     } else {
       dx = -0.5 * width - finalExtendLength
     }
-    return [x + dx, y + dy] as Coordinate
+    return [x + dx, y + dy]
   }
 
-  public drawNode(_svg: any, boxId: number) {
+  public drawNode(_svg: any, boxId: number): void {
     this.nodeId = boxId
     this.svgEl = _svg
     this.svgNode = _svg
       .append('g')
-      .attr('class', 'paro-node' + boxId)
+      .attr('class', `paro-node-${boxId}`)
       .attr('nodeId', boxId)
     const { width, height } = this
     const [cx, cy] = this.center
@@ -171,7 +175,7 @@ class Node {
     this.drawTexts()
   }
 
-  public drawTexts() {
+  public drawTexts(): void {
     const { fontColor, lineHeight, fontSize } = this.style
     this.svgNode.selectAll('text').remove()
     const t = this.svgNode
@@ -201,7 +205,7 @@ class Node {
     })
   }
 
-  public drawLinks() {
+  public drawLinks(): void {
     this.links.forEach((link: Link) => {
       link.drawLinkLine(this.nodeId, this.svgEl)
     })
@@ -267,23 +271,22 @@ class Link {
   style: Dictionary = {}
   linkType: LinkType
 
-  constructor(linkArg: LinkOpt) {
-    this.sourceNode = linkArg.sourceNode
-    this.targetNode = linkArg.targetNode
-    this.sourceXY = linkArg.sourceXY
-    this.sourceOriginXY = linkArg.sourceOriginXY
-    this.targetXY = linkArg.targetXY
-    this.targetOriginXY = linkArg.targetOriginXY
+  constructor(options: LinkOptions) {
+    this.sourceNode = options.sourceNode
+    this.targetNode = options.targetNode
+    this.sourceXY = options.sourceXY
+    this.sourceOriginXY = options.sourceOriginXY
+    this.targetXY = options.targetXY
+    this.targetOriginXY = options.targetOriginXY
     this.centerPoint = this.getCentrePoint(this.sourceXY, this.targetXY)
-    this.InflectionPoint = linkArg.InflectionPoint
-    this.outDir = linkArg.outDir
-    this.inDir = linkArg.inDir
-    this.style = linkArg.style
-    this.linkType = linkArg.linkType
+    this.InflectionPoint = options.InflectionPoint
+    this.outDir = options.outDir
+    this.inDir = options.inDir
+    this.style = options.style
+    this.linkType = options.linkType
   }
 
-  // Is the line formed by two points parallel to the coordinate axis
-  private isParallelAxis(a: Coordinate, b: Coordinate) {
+  private isParallelAxis(a: Coordinate, b: Coordinate): boolean {
     const [x1, y1] = a
     const [x2, y2] = b
     return x1 === x2 || y1 === y2
@@ -470,7 +473,7 @@ class Link {
     sourceDirPoint: DirectionPoint,
     targetDirPoint: DirectionPoint
   ) {
-    // 一正点一反点----------------------------
+    // 一正点一反点
     if (sourceDirPoint.direction !== targetDirPoint.direction) {
       // 一正一反是同一点(拐弯连接)
       if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
@@ -484,12 +487,12 @@ class Link {
         this.drawNeatLine(sourceDirPoint, targetDirPoint)
       }
     } else {
-      //两个有相同方位（正 | 反）点----------------------------
-      // 同一点(整齐连接)
+      // 两个有相同方位（正 | 反）点
+      // 同一点 (整齐连接)
       if (this.isSamePoint(sourceDirPoint.point, targetDirPoint.point)) {
         this.drawNeatLine(sourceDirPoint, targetDirPoint)
       } else {
-        // 不同点(拐弯连接)
+        // 不同点 (拐弯连接)
         this.drawTurnLine(
           sourceDirPoint,
           targetDirPoint,
@@ -719,13 +722,13 @@ class FlowChart {
     const targetExist = this.nodes.find(node => node.name === target)
     if (!sourceExist) {
       console.error(
-        `[P-Flow warn]: Can't find source node: ${source}.\n\nPlease check if add node correctly before or add it before call render().`
+        `[Paroflow warn]: Can't find source node: ${source}.\n\nPlease check if add node correctly before or add it before call render().`
       )
       return this
     }
     if (!targetExist) {
       console.error(
-        `[P-Flow warn]: Can't find target node: ${target}.\n\nPlease check if add node correctly before or add it before call render().`
+        `[Paroflow warn]: Can't find target node: ${target}.\n\nPlease check if add node correctly before or add it before call render().`
       )
       return this
     }
@@ -768,21 +771,18 @@ class FlowChart {
     })
   }
   public drag() {
-    //rect间隔差值 防止拖动原点发生变化
+    // rect 间隔差值 防止拖动原点发生变化
     let xd: number
     let yd: number
     const _nodes = this.nodes
-    const currentSvg = this._svg
 
     const dragEvent: any = drag()
       .on('drag', function() {
         const id = select(this).attr('rectId')
-        //拖动过程中补充差值
         select(this)
           .attr('x', event.x - xd)
           .attr('y', event.y - yd)
-
-        //重绘此id下的line(需要先改变Node的xy等属性)
+        // re-render lines belong this id
         _nodes.forEach((d: Node) => {
           if (d.nodeId !== undefined && d.nodeId.toString() === id) {
             d.changeXY([event.x - xd, event.y - yd])
@@ -793,12 +793,11 @@ class FlowChart {
         })
       })
       .on('start', function() {
-        // 设置rect的间隔差值
         xd = event.x - parseFloat(select(this).attr('x'))
         yd = event.y - parseFloat(select(this).attr('y'))
       })
 
-    currentSvg.selectAll('.paro-node-rect').call(dragEvent)
+    this._svg.selectAll('.paro-node-rect').call(dragEvent)
   }
 }
 
