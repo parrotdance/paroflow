@@ -4,7 +4,7 @@ import { path } from 'd3-path'
 
 type EdgeDirection = 'top' | 'right' | 'bottom' | 'left'
 type PointDirection = 'negative' | 'positive'
-type LinkType = 'default' | 'normal'
+type LinkType = 'sourceBeam' | 'targetBeam' | 'normal'
 type Coordinate = [number, number]
 
 interface FlowChartInitialOptions {
@@ -382,12 +382,22 @@ class Link {
     ) {
       neatPoint = sourceDirPoint.otherPoint
     } else {
-      if (targetDirPoint.direction === 'positive') {
-        neatPoint = targetDirPoint.point
-      } else if (sourceDirPoint.direction === 'positive') {
-        neatPoint = sourceDirPoint.point
+      let defaultStartDirPoint = targetDirPoint
+      let defaultEndDirPoint = sourceDirPoint
+      console.log(this.linkType)
+
+      if (this.linkType === 'targetBeam') {
+        defaultStartDirPoint = sourceDirPoint
+        defaultEndDirPoint = targetDirPoint
+        console.log(123)
+      }
+
+      if (defaultStartDirPoint.direction === 'positive') {
+        neatPoint = defaultStartDirPoint.point
+      } else if (defaultEndDirPoint.direction === 'positive') {
+        neatPoint = defaultEndDirPoint.point
       } else {
-        neatPoint = sourceDirPoint.otherPoint
+        neatPoint = defaultEndDirPoint.otherPoint
       }
     }
 
@@ -524,7 +534,8 @@ class Link {
         this.inDir
       )
       switch (this.linkType) {
-        case 'default':
+        case 'sourceBeam':
+        case 'targetBeam':
           //连线规则1
           this.defaultRuleLink(sourceDirPoint, targetDirPoint)
           break
@@ -611,7 +622,7 @@ class FlowChart {
     extendLength: 12
   }
   constructor(selector: string, options: FlowChartInitialOptions = {}) {
-    this.linkType = options.linkType || 'default'
+    this.linkType = options.linkType || 'sourceBeam'
     let k: keyof FlowChartInitialOptions
     for (k in options) {
       if (this.options[k]) {
